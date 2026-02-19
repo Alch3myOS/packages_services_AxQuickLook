@@ -1,0 +1,63 @@
+java_library {
+    name: "axquicklook-client",
+    srcs: [
+        "aidl/**/*.aidl",
+        "client/**/*.kt",
+    ],
+    aidl: {
+        local_include_dirs: ["aidl"],
+    },
+    static_libs: [
+        "kotlin-stdlib",
+    ],
+    sdk_version: "system_current",
+}
+
+java_library {
+    name: "axquicklook-smartspace-proto",
+    srcs: ["proto/**/*.proto"],
+    proto: {
+        type: "lite",
+    },
+    static_libs: ["libprotobuf-java-lite"],
+    sdk_version: "current",
+}
+
+android_app {
+    name: "AxQuickLook",
+    manifest: "AndroidManifest.xml",
+    platform_apis: true,
+    privileged: true,
+    system_ext_specific: true,
+    certificate: "platform",
+
+    srcs: [
+        "src/**/*.kt",
+    ],
+
+    resource_dirs: ["res"],
+
+    static_libs: [
+        "axquicklook-client",
+        "axquicklook-smartspace-proto",
+        "androidx.annotation_annotation",
+        "androidx.core_core-ktx",
+        "kotlin-stdlib",
+    ],
+
+    required: [
+        "privapp-permissions-axquicklook",
+    ],
+
+    optimize: {
+        enabled: false,
+    },
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-axquicklook",
+    system_ext_specific: true,
+    sub_dir: "permissions",
+    src: "privapp-permissions-axquicklook.xml",
+    filename_from_src: true,
+}

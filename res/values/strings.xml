@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AxQuickLook</string>
+    <string name="calendar_in_time">in %d min</string>
+    <string name="calendar_now">now</string>
+    <string name="calendar_tomorrow">Tomorrow</string>
+    <string name="calendar_yesterday">Yesterday</string>
+</resources>
