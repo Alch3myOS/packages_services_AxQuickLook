@@ -33,6 +33,7 @@ class QuickLookServiceImpl(
             Log.w(TAG, "registerCallback: callback is null")
             return
         }
+        Log.d(TAG, "registerCallback: new client registered")
         aggregator.registerCallback(callback)
     }
 
@@ -47,6 +48,7 @@ class QuickLookServiceImpl(
     override fun getCurrentTargets(): List<QuickLookTarget> = aggregator.getCurrentTargets()
 
     override fun requestUpdate() {
+        Log.d(TAG, "requestUpdate: client requested update")
         aggregator.requestUpdate()
     }
 

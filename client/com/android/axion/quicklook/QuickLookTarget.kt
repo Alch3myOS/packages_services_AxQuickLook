@@ -96,6 +96,7 @@ private constructor(
         const val TYPE_MEDIA = 4
         const val TYPE_TIMER = 5
         const val TYPE_NOW_PLAYING = 6
+        const val TYPE_SPORTS = 7
         const val TYPE_SMARTSPACER = 100
         const val TYPE_GOOGLE_SMARTSPACE = 200
 
@@ -130,10 +131,35 @@ private constructor(
         const val EXTRA_NOW_PLAYING_ARTIST = "np_artist"
         const val EXTRA_NOW_PLAYING_ALBUM_ART_URI = "np_album_art_uri"
 
+        const val EXTRA_SPORTS_TEAM1_NAME = "sports_team1_name"
+        const val EXTRA_SPORTS_TEAM2_NAME = "sports_team2_name"
+        const val EXTRA_SPORTS_SCORE1 = "sports_score1"
+        const val EXTRA_SPORTS_SCORE2 = "sports_score2"
+        const val EXTRA_SPORTS_TEAM1_ICON = "sports_team1_icon"
+        const val EXTRA_SPORTS_TEAM2_ICON = "sports_team2_icon"
+        const val EXTRA_SPORTS_STATUS = "sports_status"
+        const val EXTRA_SPORTS_STATUS_DETAIL = "sports_status_detail"
+        const val EXTRA_SPORTS_LEAGUE = "sports_league"
+
         const val EXTRA_SMARTSPACE_FEATURE_TYPE = "smartspace_feature_type"
+        const val EXTRA_SMARTSPACE_EFFECTIVE_FEATURE_TYPE = "smartspace_effective_feature_type"
         const val EXTRA_SMARTSPACE_ICON = "smartspace_icon"
         const val EXTRA_SMARTSPACE_COMPONENT = "smartspace_component"
         const val EXTRA_SMARTSPACE_SENSITIVE = "smartspace_sensitive"
+        const val EXTRA_SMARTSPACE_ACTION_CHIPS_COUNT = "smartspace_action_chips_count"
+        const val EXTRA_SMARTSPACE_ACTION_CHIP_PREFIX = "smartspace_action_chip_"
+        const val EXTRA_SMARTSPACE_ICON_GRID_COUNT = "smartspace_icon_grid_count"
+        const val EXTRA_SMARTSPACE_ICON_GRID_PREFIX = "smartspace_icon_grid_"
+        const val EXTRA_SMARTSPACE_HAS_TEMPLATE_DATA = "smartspace_has_template_data"
+
+        const val EXTRA_NOW_PLAYING_FAVORITING_INTENT = "np_favoriting_intent"
+        const val EXTRA_NOW_PLAYING_ICON_OVERRIDE = "np_icon_override"
+        const val EXTRA_NOW_PLAYING_ICON_DESCRIPTION = "np_icon_description"
+        const val EXTRA_NOW_PLAYING_IS_RECOGNITION = "np_is_recognition"
+        const val EXTRA_NOW_PLAYING_EXPAND_INTENT = "np_expand_intent"
+        const val EXTRA_NOW_PLAYING_DMP_INTENT = "np_dmp_intent"
+        const val EXTRA_NOW_PLAYING_DMP_PACKAGE = "np_dmp_package"
+        const val EXTRA_NOW_PLAYING_IS_FAVORITE = "np_is_favorite"
 
         @JvmField
         val CREATOR =

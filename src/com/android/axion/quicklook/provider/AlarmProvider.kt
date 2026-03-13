@@ -17,12 +17,11 @@
 package com.android.axion.quicklook.provider
 
 import android.content.Context
-import android.database.ContentObserver
 import android.os.Bundle
 import android.os.Handler
-import android.provider.Settings
 import android.text.format.DateFormat
 import android.util.Log
+import com.android.axion.platform.AxPlatformClient
 import com.android.axion.quicklook.QuickLookTarget
 import com.android.axion.quicklook.R
 import com.android.axion.quicklook.util.SettingsHelper
@@ -30,13 +29,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
 
 class AlarmProvider(context: Context, workerHandler: Handler) :
     QuickLookProvider(context, workerHandler) {
 
     @Volatile private var currentTarget: QuickLookTarget? = null
-    private var settingsObserver: ContentObserver? = null
+
+    private val listener = object : AxPlatformClient.Listener() {
+        override fun onAlarmChanged(triggerTime: Long, packageName: String) {
+            workerHandler.post { updateAlarm(triggerTime) }
+        }
+    }
 
     override val providerType
         get() = QuickLookTarget.TYPE_ALARM
@@ -53,50 +56,33 @@ class AlarmProvider(context: Context, workerHandler: Handler) :
     }
 
     override fun start() {
-        settingsObserver =
-            object : ContentObserver(workerHandler) {
-                override fun onChange(selfChange: Boolean) {
-                    workerHandler.post(::updateFromHook)
-                }
+        Log.d(TAG, "start: isEnabled=$isEnabled")
+        val client = AxPlatformClient.getInstance()
+        client.init(context)
+        client.addListener(listener)
+        workerHandler.post {
+            try {
+                val initial = client.getState(AxPlatformClient.KEY_ALARM)
+                val triggerTime = initial.getLong("triggerTime", 0L)
+                if (triggerTime > 0) updateAlarm(triggerTime)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read initial alarm state", e)
             }
-        context.contentResolver.registerContentObserver(
-            Settings.Secure.getUriFor(KEY_NEXT_ALARM),
-            false,
-            settingsObserver!!,
-        )
-        workerHandler.post(::updateFromHook)
+        }
     }
 
     override fun shutdown() {
-        settingsObserver?.let {
-            context.contentResolver.unregisterContentObserver(it)
-            settingsObserver = null
-        }
+        AxPlatformClient.getInstance().removeListener(listener)
     }
 
-    private fun updateFromHook() {
-        if (!isEnabled) {
-            currentTarget = null
-            notifyUpdate()
-            return
-        }
-
-        val raw = Settings.Secure.getString(context.contentResolver, KEY_NEXT_ALARM)
-        if (raw.isNullOrEmpty()) {
+    private fun updateAlarm(triggerTime: Long) {
+        if (!isEnabled || triggerTime == 0L) {
             currentTarget = null
             notifyUpdate()
             return
         }
 
         try {
-            val json = JSONObject(raw)
-            val triggerTime = json.optLong("triggerTime", 0L)
-            if (triggerTime == 0L) {
-                currentTarget = null
-                notifyUpdate()
-                return
-            }
-
             val now = System.currentTimeMillis()
             if (triggerTime - now > SHOW_THRESHOLD_MILLIS || triggerTime <= now) {
                 currentTarget = null
@@ -107,7 +93,7 @@ class AlarmProvider(context: Context, workerHandler: Handler) :
             currentTarget = buildTarget(triggerTime)
             notifyUpdate()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse alarm hook", e)
+            Log.e(TAG, "Failed to parse alarm state", e)
             currentTarget = null
             notifyUpdate()
         }
@@ -150,7 +136,6 @@ class AlarmProvider(context: Context, workerHandler: Handler) :
 
     companion object {
         private const val TAG = "AlarmProvider"
-        private const val KEY_NEXT_ALARM = "ax_next_alarm"
         private val SHOW_THRESHOLD_MILLIS = TimeUnit.HOURS.toMillis(12)
     }
 }

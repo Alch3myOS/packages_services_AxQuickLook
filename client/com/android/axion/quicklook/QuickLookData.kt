@@ -72,19 +72,80 @@ data class MediaData(
 
 data class AlarmData(val triggerTime: Long)
 
-data class NowPlayingData(val title: String, val artist: String?, val albumArtUri: String?)
+data class NowPlayingData(
+    val title: String,
+    val artist: String?,
+    val albumArtUri: String?,
+    val isRecognition: Boolean = false,
+    val isFavorite: Boolean = false,
+    val iconOverride: Int = 0,
+)
+
+data class SportsData(
+    val team1Name: String,
+    val team2Name: String,
+    val score1: String,
+    val score2: String,
+    val team1IconBytes: ByteArray?,
+    val team2IconBytes: ByteArray?,
+    val status: String,
+    val statusDetail: String,
+    val league: String,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SportsData) return false
+        return team1Name == other.team1Name &&
+            team2Name == other.team2Name &&
+            score1 == other.score1 &&
+            score2 == other.score2 &&
+            status == other.status
+    }
+
+    override fun hashCode(): Int {
+        var result = team1Name.hashCode()
+        result = 31 * result + team2Name.hashCode()
+        result = 31 * result + score1.hashCode()
+        result = 31 * result + score2.hashCode()
+        result = 31 * result + status.hashCode()
+        return result
+    }
+}
+
+data class ActionChipData(
+    val title: String?,
+    val subtitle: String?,
+    val contentDescription: String?,
+    val iconBytes: ByteArray?,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ActionChipData) return false
+        return title == other.title && subtitle == other.subtitle
+    }
+
+    override fun hashCode(): Int {
+        var result = title?.hashCode() ?: 0
+        result = 31 * result + (subtitle?.hashCode() ?: 0)
+        return result
+    }
+}
 
 data class SmartspaceTargetData(
     val id: String,
     val title: String,
     val subtitle: String,
     val featureType: Int,
+    val effectiveFeatureType: Int,
     val iconBytes: ByteArray?,
     val componentName: String?,
     val isSensitive: Boolean,
     val sourceType: Int,
     val creationTime: Long,
     val score: Float,
+    val actionChips: List<ActionChipData>,
+    val iconGrid: List<ActionChipData>,
+    val hasTemplateData: Boolean,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -93,6 +154,7 @@ data class SmartspaceTargetData(
             title == other.title &&
             subtitle == other.subtitle &&
             featureType == other.featureType &&
+            effectiveFeatureType == other.effectiveFeatureType &&
             sourceType == other.sourceType
     }
 
@@ -101,6 +163,7 @@ data class SmartspaceTargetData(
         result = 31 * result + title.hashCode()
         result = 31 * result + subtitle.hashCode()
         result = 31 * result + featureType
+        result = 31 * result + effectiveFeatureType
         result = 31 * result + sourceType
         return result
     }
@@ -171,8 +234,50 @@ val QuickLookTarget.nowPlayingData: NowPlayingData?
             title = title ?: "",
             artist = extras?.getString(QuickLookTarget.EXTRA_NOW_PLAYING_ARTIST),
             albumArtUri = extras?.getString(QuickLookTarget.EXTRA_NOW_PLAYING_ALBUM_ART_URI),
+            isRecognition =
+                extras?.getBoolean(QuickLookTarget.EXTRA_NOW_PLAYING_IS_RECOGNITION, false)
+                    ?: false,
+            isFavorite =
+                extras?.getBoolean(QuickLookTarget.EXTRA_NOW_PLAYING_IS_FAVORITE, false) ?: false,
+            iconOverride =
+                extras?.getInt(QuickLookTarget.EXTRA_NOW_PLAYING_ICON_OVERRIDE, 0) ?: 0,
         )
     }
+
+val QuickLookTarget.sportsData: SportsData?
+    get() {
+        if (targetType != QuickLookTarget.TYPE_SPORTS) return null
+        val extras = extras ?: return null
+        return SportsData(
+            team1Name = extras.getString(QuickLookTarget.EXTRA_SPORTS_TEAM1_NAME) ?: "",
+            team2Name = extras.getString(QuickLookTarget.EXTRA_SPORTS_TEAM2_NAME) ?: "",
+            score1 = extras.getString(QuickLookTarget.EXTRA_SPORTS_SCORE1) ?: "",
+            score2 = extras.getString(QuickLookTarget.EXTRA_SPORTS_SCORE2) ?: "",
+            team1IconBytes = extras.getByteArray(QuickLookTarget.EXTRA_SPORTS_TEAM1_ICON),
+            team2IconBytes = extras.getByteArray(QuickLookTarget.EXTRA_SPORTS_TEAM2_ICON),
+            status = extras.getString(QuickLookTarget.EXTRA_SPORTS_STATUS) ?: "",
+            statusDetail = extras.getString(QuickLookTarget.EXTRA_SPORTS_STATUS_DETAIL) ?: "",
+            league = extras.getString(QuickLookTarget.EXTRA_SPORTS_LEAGUE) ?: "",
+        )
+    }
+
+private fun deserializeChips(extras: android.os.Bundle, countKey: String, prefixKey: String): List<ActionChipData> {
+    val count = extras.getInt(countKey, 0)
+    if (count == 0) return emptyList()
+    val chips = mutableListOf<ActionChipData>()
+    for (i in 0 until count) {
+        val chipBundle = extras.getBundle("${prefixKey}${i}_data") ?: continue
+        chips.add(
+            ActionChipData(
+                title = chipBundle.getString("title"),
+                subtitle = chipBundle.getString("subtitle"),
+                contentDescription = chipBundle.getString("content_description"),
+                iconBytes = chipBundle.getByteArray("icon_bytes"),
+            )
+        )
+    }
+    return chips
+}
 
 val QuickLookTarget.smartspaceData: SmartspaceTargetData?
     get() {
@@ -182,11 +287,15 @@ val QuickLookTarget.smartspaceData: SmartspaceTargetData?
         )
             return null
         val extras = extras
+        val featureType = extras?.getInt(QuickLookTarget.EXTRA_SMARTSPACE_FEATURE_TYPE, 0) ?: 0
         return SmartspaceTargetData(
             id = id,
             title = title ?: "",
             subtitle = subtitle ?: "",
-            featureType = extras?.getInt(QuickLookTarget.EXTRA_SMARTSPACE_FEATURE_TYPE, 0) ?: 0,
+            featureType = featureType,
+            effectiveFeatureType =
+                extras?.getInt(QuickLookTarget.EXTRA_SMARTSPACE_EFFECTIVE_FEATURE_TYPE, featureType)
+                    ?: featureType,
             iconBytes = iconBytes,
             componentName = extras?.getString(QuickLookTarget.EXTRA_SMARTSPACE_COMPONENT),
             isSensitive =
@@ -194,5 +303,24 @@ val QuickLookTarget.smartspaceData: SmartspaceTargetData?
             sourceType = targetType,
             creationTime = creationTime,
             score = score,
+            actionChips =
+                extras?.let {
+                    deserializeChips(
+                        it,
+                        QuickLookTarget.EXTRA_SMARTSPACE_ACTION_CHIPS_COUNT,
+                        QuickLookTarget.EXTRA_SMARTSPACE_ACTION_CHIP_PREFIX,
+                    )
+                } ?: emptyList(),
+            iconGrid =
+                extras?.let {
+                    deserializeChips(
+                        it,
+                        QuickLookTarget.EXTRA_SMARTSPACE_ICON_GRID_COUNT,
+                        QuickLookTarget.EXTRA_SMARTSPACE_ICON_GRID_PREFIX,
+                    )
+                } ?: emptyList(),
+            hasTemplateData =
+                extras?.getBoolean(QuickLookTarget.EXTRA_SMARTSPACE_HAS_TEMPLATE_DATA, false)
+                    ?: false,
         )
     }

@@ -17,24 +17,29 @@
 package com.android.axion.quicklook.provider
 
 import android.content.Context
-import android.database.ContentObserver
 import android.os.Bundle
 import android.os.Handler
-import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
+import com.android.axion.platform.AxPlatformClient
 import com.android.axion.quicklook.QuickLookTarget
 import com.android.axion.quicklook.R
 import com.android.axion.quicklook.util.SettingsHelper
 import java.util.concurrent.TimeUnit
-import org.json.JSONObject
 
 class MediaProvider(context: Context, workerHandler: Handler) :
     QuickLookProvider(context, workerHandler) {
 
     @Volatile private var currentTarget: QuickLookTarget? = null
-    private var settingsObserver: ContentObserver? = null
     private var pauseTime = 0L
+
+    private val listener = object : AxPlatformClient.Listener() {
+        override fun onStateChanged(key: String, state: Bundle) {
+            if (key == AxPlatformClient.KEY_MEDIA) {
+                workerHandler.post { updateFromBundle(state) }
+            }
+        }
+    }
 
     override val providerType
         get() = QuickLookTarget.TYPE_MEDIA
@@ -51,49 +56,37 @@ class MediaProvider(context: Context, workerHandler: Handler) :
     }
 
     override fun start() {
-        settingsObserver =
-            object : ContentObserver(workerHandler) {
-                override fun onChange(selfChange: Boolean) {
-                    workerHandler.post(::updateFromHook)
-                }
+        Log.d(TAG, "start: isEnabled=$isEnabled")
+        val client = AxPlatformClient.getInstance()
+        client.init(context)
+        client.addListener(listener)
+        workerHandler.post {
+            try {
+                val initial = client.getState(AxPlatformClient.KEY_MEDIA)
+                if (!initial.isEmpty) updateFromBundle(initial)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read initial media state", e)
             }
-        context.contentResolver.registerContentObserver(
-            Settings.Secure.getUriFor(KEY_MEDIA_INFO),
-            false,
-            settingsObserver!!,
-        )
-        workerHandler.post(::updateFromHook)
-    }
-
-    override fun shutdown() {
-        settingsObserver?.let {
-            context.contentResolver.unregisterContentObserver(it)
-            settingsObserver = null
         }
     }
 
-    private fun updateFromHook() {
+    override fun shutdown() {
+        AxPlatformClient.getInstance().removeListener(listener)
+    }
+
+    private fun updateFromBundle(bundle: Bundle) {
         if (!isEnabled) {
             currentTarget = null
             notifyUpdate()
             return
         }
 
-        val raw = Settings.Secure.getString(context.contentResolver, KEY_MEDIA_INFO)
-        if (raw.isNullOrEmpty()) {
-            currentTarget = null
-            pauseTime = 0
-            notifyUpdate()
-            return
-        }
-
         try {
-            val json = JSONObject(raw)
-            val track = json.optString("track", "")
-            val artist = json.optString("artist", "")
-            val album = json.optString("album", "")
-            val isPlaying = json.optBoolean("isPlaying", false)
-            val packageName = json.optString("packageName", "")
+            val track = bundle.getString("track", "")
+            val artist = bundle.getString("artist", "")
+            val album = bundle.getString("album", "")
+            val isPlaying = bundle.getBoolean("isPlaying", false)
+            val packageName = bundle.getString("packageName", "")
 
             if (TextUtils.isEmpty(track)) {
                 currentTarget = null
@@ -108,39 +101,35 @@ class MediaProvider(context: Context, workerHandler: Handler) :
                 pauseTime = 0
             }
 
-            val extras =
-                Bundle().apply {
-                    putString(QuickLookTarget.EXTRA_MEDIA_ARTIST, artist)
-                    putString(QuickLookTarget.EXTRA_MEDIA_ALBUM, album)
-                    putBoolean(QuickLookTarget.EXTRA_MEDIA_IS_PLAYING, isPlaying)
-                    putString(QuickLookTarget.EXTRA_MEDIA_PACKAGE, packageName)
-                }
+            val extras = Bundle().apply {
+                putString(QuickLookTarget.EXTRA_MEDIA_ARTIST, artist)
+                putString(QuickLookTarget.EXTRA_MEDIA_ALBUM, album)
+                putBoolean(QuickLookTarget.EXTRA_MEDIA_IS_PLAYING, isPlaying)
+                putString(QuickLookTarget.EXTRA_MEDIA_PACKAGE, packageName)
+            }
 
-            val expiryTime =
-                if (!isPlaying && pauseTime > 0) {
-                    pauseTime + PAUSE_EXPIRY_MILLIS
-                } else 0L
+            val expiryTime = if (!isPlaying && pauseTime > 0) {
+                pauseTime + PAUSE_EXPIRY_MILLIS
+            } else 0L
 
-            val subtitle =
-                when {
-                    !TextUtils.isEmpty(artist) -> artist
-                    !TextUtils.isEmpty(album) -> album
-                    else -> null
-                }
+            val subtitle = when {
+                !TextUtils.isEmpty(artist) -> artist
+                !TextUtils.isEmpty(album) -> album
+                else -> null
+            }
 
-            currentTarget =
-                QuickLookTarget.Builder("axql_media", QuickLookTarget.TYPE_MEDIA)
-                    .setTitle(track)
-                    .setSubtitle(subtitle)
-                    .setIconResId(R.drawable.ic_music_note)
-                    .setScore(if (isPlaying) 0.75f else 0.3f)
-                    .setExpiryTime(expiryTime)
-                    .setExtras(extras)
-                    .build()
+            currentTarget = QuickLookTarget.Builder("axql_media", QuickLookTarget.TYPE_MEDIA)
+                .setTitle(track)
+                .setSubtitle(subtitle)
+                .setIconResId(R.drawable.ic_music_note)
+                .setScore(if (isPlaying) 0.75f else 0.3f)
+                .setExpiryTime(expiryTime)
+                .setExtras(extras)
+                .build()
 
             notifyUpdate()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse media hook", e)
+            Log.e(TAG, "Failed to parse media state", e)
             currentTarget = null
             notifyUpdate()
         }
@@ -148,7 +137,6 @@ class MediaProvider(context: Context, workerHandler: Handler) :
 
     companion object {
         private const val TAG = "MediaProvider"
-        private const val KEY_MEDIA_INFO = "ax_media_info"
         private val PAUSE_EXPIRY_MILLIS = TimeUnit.SECONDS.toMillis(30)
     }
 }

@@ -67,12 +67,14 @@ class DataAggregator(private val workerHandler: Handler) : QuickLookProvider.Upd
         val allTargets = mutableListOf<QuickLookTarget>()
 
         for (provider in providers) {
-            if (!provider.isEnabled) continue
-            provider.getTargets().let { allTargets.addAll(it) }
+            if (!provider.isEnabled) {
+                Log.d(TAG, "  provider ${provider.javaClass.simpleName} disabled, skipping")
+                continue
+            }
+            val targets = provider.getTargets()
+            Log.d(TAG, "  provider ${provider.javaClass.simpleName}: ${targets.size} targets")
+            allTargets.addAll(targets)
         }
-
-        val now = System.currentTimeMillis()
-        allTargets.removeAll { it.expiryTime > 0 && it.expiryTime < now }
 
         allTargets.sortWith(
             compareBy<QuickLookTarget> {
@@ -89,14 +91,22 @@ class DataAggregator(private val workerHandler: Handler) : QuickLookProvider.Upd
                 allTargets.toList()
             }
 
-        if (capped == currentTargets) return
+        if (capped == currentTargets) {
+            Log.d(TAG, "  targets unchanged (${capped.size}), skipping broadcast")
+            return
+        }
 
+        Log.d(TAG, "  broadcasting ${capped.size} targets")
+        for (t in capped) {
+            Log.d(TAG, "    target: id=${t.id} type=${t.targetType} title=${t.title} score=${t.score}")
+        }
         currentTargets = capped
         broadcastTargets(currentTargets)
     }
 
     private fun broadcastTargets(targets: List<QuickLookTarget>) {
         val count = callbacks.beginBroadcast()
+        Log.d(TAG, "  broadcastTargets: ${targets.size} targets to $count callbacks")
         for (i in 0 until count) {
             try {
                 callbacks.getBroadcastItem(i).onTargetsUpdated(targets)

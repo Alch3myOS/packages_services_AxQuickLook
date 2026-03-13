@@ -34,6 +34,7 @@ class ProviderRegistry(
     private var settingsObserver: ContentObserver? = null
 
     fun initialize() {
+        Log.i(TAG, "Initializing providers...")
 
         registerProvider(WeatherProvider(context, workerHandler))
         registerProvider(CalendarProvider(context, workerHandler))

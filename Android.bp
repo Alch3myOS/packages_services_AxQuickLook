@@ -38,6 +38,7 @@ android_app {
     resource_dirs: ["res"],
 
     static_libs: [
+        "ax_platform_hooks",
         "axquicklook-client",
         "axquicklook-smartspace-proto",
         "androidx.annotation_annotation",
