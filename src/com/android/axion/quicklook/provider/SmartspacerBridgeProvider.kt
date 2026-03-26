@@ -16,6 +16,7 @@
 
 package com.android.axion.quicklook.provider
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -166,7 +167,12 @@ class SmartspacerBridgeProvider(context: Context, workerHandler: Handler) :
             if (card.hasTapAction() && card.tapAction.hasIntent()) {
                 try {
                     val intent = Intent.parseUri(card.tapAction.intent, 0)
+                    val pi = PendingIntent.getActivity(
+                        context, card.cardId, intent,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
                     QuickLookAction.Builder("smartspacer_action_${card.cardId}")
+                        .setPendingIntent(pi)
                         .setIntent(intent)
                         .build()
                 } catch (_: Exception) {

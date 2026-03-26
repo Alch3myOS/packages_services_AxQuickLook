@@ -1,9 +1,11 @@
-java_library {
+android_library {
     name: "axquicklook-client",
+    manifest: "client/AndroidManifest.xml",
     srcs: [
         "aidl/**/*.aidl",
         "client/**/*.kt",
     ],
+    resource_dirs: ["client/res"],
     aidl: {
         local_include_dirs: ["aidl"],
     },
@@ -11,6 +13,7 @@ java_library {
         "kotlin-stdlib",
     ],
     sdk_version: "system_current",
+    visibility: ["//visibility:public"],
 }
 
 java_library {
@@ -38,13 +41,28 @@ android_app {
     resource_dirs: ["res"],
 
     static_libs: [
+        "ax_compose",
         "ax_platform_hooks",
         "axquicklook-client",
         "axquicklook-smartspace-proto",
+        "androidx.activity_activity-compose",
         "androidx.annotation_annotation",
+        "androidx.compose.foundation_foundation",
+        "androidx.compose.foundation_foundation-layout",
+        "androidx.compose.material3_material3",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui",
         "androidx.core_core-ktx",
+        "com.google.android.material_material",
         "kotlin-stdlib",
     ],
+
+    kotlincflags: [
+        "-Xjvm-default=all",
+        "-P plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=true",
+    ],
+
+    use_resource_processor: true,
 
     required: [
         "privapp-permissions-axquicklook",

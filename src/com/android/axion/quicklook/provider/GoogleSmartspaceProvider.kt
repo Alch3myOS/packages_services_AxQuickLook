@@ -16,6 +16,7 @@
 
 package com.android.axion.quicklook.provider
 
+import android.app.PendingIntent
 import android.app.smartspace.SmartspaceAction
 import android.app.smartspace.SmartspaceConfig
 import android.app.smartspace.SmartspaceManager
@@ -487,7 +488,13 @@ class GoogleSmartspaceProvider(context: Context, workerHandler: Handler) :
 
         if (source.pendingIntent != null) {
             builder.setPendingIntent(source.pendingIntent)
+            source.intent?.let { builder.setIntent(it) }
         } else if (source.intent != null) {
+            val pi = PendingIntent.getActivity(
+                context, st.smartspaceTargetId.hashCode(), source.intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            builder.setPendingIntent(pi)
             builder.setIntent(source.intent)
         }
 
