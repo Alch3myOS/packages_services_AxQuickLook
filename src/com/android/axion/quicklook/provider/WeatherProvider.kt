@@ -22,10 +22,15 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
+import androidx.core.graphics.drawable.toBitmap
+import com.android.internal.util.android.OmniJawsClient
+import java.io.ByteArrayOutputStream
 import com.android.axion.quicklook.QuickLookAction
 import com.android.axion.quicklook.QuickLookTarget
 import com.android.axion.quicklook.R
@@ -39,6 +44,7 @@ class WeatherProvider(context: Context, workerHandler: Handler) :
     private var weatherReceiver: BroadcastReceiver? = null
     private var weatherObserver: ContentObserver? = null
     @Volatile private var currentTarget: QuickLookTarget? = null
+    private val omniJawsClient = OmniJawsClient.get()
 
     override val providerType
         get() = QuickLookTarget.TYPE_WEATHER
@@ -177,18 +183,43 @@ class WeatherProvider(context: Context, workerHandler: Handler) :
                 QuickLookAction.Builder("weather_action").setLabel("Weather").setIntent(it).build()
             }
 
+        val iconBytes = loadConditionIconBytes(conditionCode)
+
         currentTarget =
             QuickLookTarget.Builder("axql_weather", QuickLookTarget.TYPE_WEATHER)
                 .setTitle("$temp$tempUnit")
                 .setSubtitle(condition)
                 .setIconResId(R.drawable.ic_weather_default)
-                .setScore(1.0f)
+                .setIconBytes(iconBytes)
+                .setScore(10.0f)
                 .setExpiryTime(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(3))
                 .setPrimaryAction(action)
                 .setExtras(extras)
                 .build()
 
         notifyUpdate()
+    }
+
+    private fun loadConditionIconBytes(conditionCode: Int): ByteArray? {
+        return try {
+            val drawable = omniJawsClient.getWeatherConditionImage(context, conditionCode)
+                ?: return null
+            val bitmap: Bitmap = if (drawable is BitmapDrawable) {
+                drawable.bitmap
+            } else {
+                drawable.toBitmap(
+                    width = drawable.intrinsicWidth.coerceAtLeast(1),
+                    height = drawable.intrinsicHeight.coerceAtLeast(1),
+                )
+            }
+            ByteArrayOutputStream().use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                stream.toByteArray()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load OmniJaws icon", e)
+            null
+        }
     }
 
     private fun isOmniJawsAvailable(): Boolean {
