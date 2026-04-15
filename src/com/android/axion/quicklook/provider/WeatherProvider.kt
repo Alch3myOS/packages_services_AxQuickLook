@@ -29,7 +29,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
-import com.android.internal.util.android.OmniJawsClient
+import com.android.internal.util.lunaris.OmniJawsClient
 import java.io.ByteArrayOutputStream
 import com.android.axion.quicklook.QuickLookAction
 import com.android.axion.quicklook.QuickLookTarget
